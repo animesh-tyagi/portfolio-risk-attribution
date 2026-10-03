@@ -1,0 +1,10 @@
+{
+  "title": "Portfolio Risk Attribution Engine",
+  "base_currency": "USD",
+  "trading_days": 252,
+  "lookback_returns": 756,
+  "rolling_window": 60,
+  "min_observations": 252,
+  "download_start": "2022-01-01",
+  "download_end_exclusive": "2026-01-01"
+}

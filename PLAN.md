@@ -16,7 +16,7 @@ with verified progress so a new Codex session can continue without the old chat.
 ## Status
 - [x] Starter revised to the user's exact 12-feature MVP.
 - [ ] M0 completed on the user's development machine.
-- [ ] M1 completed with CSV portfolio and real market-data cache.
+- [x] M1 completed with CSV portfolio and real market-data cache (2026-10-04).
 - [ ] M2 completed with known-answer metric tests.
 - [ ] M3 completed with attribution invariants.
 - [ ] M4 completed with all four required plots.
@@ -44,15 +44,66 @@ real-data requirement; do not mark M1 or the whole project complete without it.
   explain the limits of using historical ETF returns for risk analysis.
 
 ## Current handoff
-Completed: revised planning files, CSV example, settings, package skeleton,
-placeholder app, synthetic fixture and scaffold checker. The original scenarios
-config and reports folder have been removed. No market data or financial engine
-has been implemented. Next: START_HERE.md, then M1 in docs/CODEX_PROMPTS.md.
+Completed: M1 CSV/settings loading, observed-price validation, explicit shared
+yfinance adapter, CLI and validated local adjusted-price cache with provenance.
+The real bundled-example cache downloaded and subsequently loaded offline.
+Financial functions and dashboard remain unimplemented; app.py is unchanged.
+Next: M2 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
+but its full setup/checkpoint milestone was not performed in this M1-only session.
 
-## Milestone log — fill after each stage
-- Stage/status:
-- Files changed:
-- Commands and actual results:
-- Finance concept understood:
-- Decisions or blockers:
-- Next action:
+## Milestone log — M1, 2026-10-04
+
+- Stage/status: M1 complete; real prices acquired and matching cache verified offline.
+- Files changed: added src/portfolio_risk/data.py, scripts/download_data.py and
+  tests/test_data.py; updated README.md, tests/README.md and PLAN.md. Created
+  ignored data/processed/prices.csv, manifest.json and provider cache under data/raw.
+  No UI, metrics or attribution implementation was added.
+- Environment: existing native Windows .venv; Python 3.11.4, NumPy 2.4.6,
+  pandas 3.0.6, pytest 9.1.1, yfinance 1.7.0, Streamlit 1.65.0, Plotly 6.9.0.
+  No packages installed or environments replaced. Initial sandbox launch could
+  not create the base Python process; approved execution of the same venv worked.
+- Commands and actual results (all Python commands used .venv/Scripts/python.exe):
+  - `scripts/check_starter.py`: PASS; scaffold/configuration check only.
+  - `-m pip check`: "No broken requirements found."
+  - `scripts/download_data.py`: exit 0; retrieved 2026-10-04T09:32:36.017395+00:00
+    from Yahoo Finance via yfinance; requested 2022-01-01 to exclusive 2026-01-01.
+    Actual 1,003 union price dates, 2022-01-03 through 2025-12-31; zero missing
+    prices for SPY, TLT, LQD, GLD and FXE. Every quote currency source-verified USD;
+    no --assume-usd flag used. Actual provider columns were field/ticker MultiIndex.
+  - `scripts/download_data.py --load-cache`: exit 0; same actual counts/dates,
+    matching hash/provenance validated offline. Cache load imports no provider.
+  - `-m pytest -q`: final **57 passed in 3.48s**. Offline M1 tests use the existing
+    four-row synthetic fixture and mocked provider responses, including one asset,
+    arbitrary portfolio size, malformed weights/prices, preserved gaps, currency
+    uncertainty, unavailable symbols, stale/corrupt caches and failed-write rollback.
+    Includes a CLI subprocess launched from another working directory.
+  - `git diff --check`: passed. `git check-ignore` confirmed prices.csv,
+    manifest.json and data/raw/yfinance are excluded. No commit, push or publish.
+- Finance concept: weights describe fractions of portfolio capital and sum to one;
+  historical price columns describe each instrument's price history and are joined
+  to holdings by ticker. Changing weights alone reuses the same price cache.
+  auto_adjust=True extracts adjusted Close, accounting for splits/distributions;
+  inspected installed yfinance auto_adjust code confirms Adj Close becomes Close.
+  A euro-exposure ETF such as FXE can still have a USD quote currency.
+- Decisions: trim/uppercase ticker labels, preserve CSV row order, reject duplicate
+  normalized labels; never normalize weights or fill/drop incomplete price rows.
+  Unknown quote currency requires explicit CLI --assume-usd (or future UI
+  confirmation) with recorded warning/basis; known non-USD is rejected regardless.
+  Request/ticker/adjustment/currency/hash mismatches require explicit refresh.
+  Weight changes and ticker reordering are compatible. No arbitrary time expiry
+  for the fixed historical sample; retrieval timestamp is available for display,
+  and provider revisions require explicit refresh. Stage both cache files and
+  roll back ordinary write failures; interrupted two-file replacement is detected
+  by hash validation, not claimed to be an atomic two-file transaction.
+- Verification boundary: M1 verifies inputs and price acquisition/cache, not
+  financial-engine correctness. Usable return counts, 252-return minimum and the
+  latest-756-return sample remain M2/M4 responsibilities. No calculated risk
+  findings or business impact have been measured. No remaining M1 blocker.
+- Interview question: "Why can changing SPY's weight reuse cached prices, while
+  replacing SPY with another ticker requires a refresh?" Answer: price histories
+  belong to instruments, independently of allocation; weights combine their
+  future calculated returns, while a different instrument requires its own
+  validated price series and currency provenance.
+- Next action: implement M2 daily returns on the sorted union date index without
+  filling, then common-sample selection/diagnostics and the specified volatility,
+  covariance/correlation and rolling-volatility functions with known-answer tests.

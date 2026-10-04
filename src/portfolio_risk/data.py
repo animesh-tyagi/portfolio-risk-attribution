@@ -113,6 +113,8 @@ def load_settings(path: str | Path = "config/settings.json") -> dict:
         settings = json.loads(project_path(path).read_text(encoding="utf-8"))
         if not isinstance(settings, dict):
             raise DataError("Settings must be a JSON object.")
+        if not isinstance(settings.get("title"), str) or not settings["title"].strip():
+            raise DataError("title must be a nonempty string.")
         _request(["SETTINGS"], settings["download_start"], settings["download_end_exclusive"], settings["base_currency"])
         for key in ("trading_days", "lookback_returns", "rolling_window", "min_observations"):
             if type(settings[key]) is not int or settings[key] <= 0:

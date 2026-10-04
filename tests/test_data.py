@@ -259,3 +259,16 @@ def test_cli_cache_load_from_other_working_directory(provider, tmp_path):
 def test_missing_cache(tmp_path):
     with pytest.raises(data.CacheError, match="refresh"):
         data.load_cache(["A"], START, END, tmp_path)
+
+
+@pytest.mark.parametrize("title", [None, "", "   ", 123])
+def test_invalid_settings_title_is_a_data_error(tmp_path, title):
+    settings = data.load_settings()
+    if title is None:
+        settings.pop("title")
+    else:
+        settings["title"] = title
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps(settings))
+    with pytest.raises(data.DataError, match="title must be a nonempty string"):
+        data.load_settings(path)

@@ -20,7 +20,7 @@ with verified progress so a new Codex session can continue without the old chat.
 - [x] M2 completed with known-answer metric tests (2026-10-04).
 - [x] M3 completed with attribution invariants (2026-10-04).
 - [x] M4 completed with all four required plots (2026-10-04).
-- [ ] M5 completed with end-to-end verification and explanation.
+- [x] M5 completed with end-to-end verification and explanation (2026-10-05 IST).
 
 ## Scope control
 At the end of Day 1, validate the calculation engine before UI work. Keep the
@@ -51,8 +51,10 @@ M2 pure returns/volatility calculations and M3 attribution pass offline
 known-answer tests. M4 single-page dashboard now consumes the engine, with CSV
 input, explicit refresh, validated cache reuse, metrics/matrices and four plots.
 Real-data refresh and offline reruns were verified in Streamlit AppTest.
-Next: M5 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
-but its full setup/checkpoint milestone was not performed in this M1-only session.
+M5 is now complete: fresh setup, contract review, offline and real-provider flows,
+browser plot checks and README demonstration/explanation. Next: rehearse the demo.
+M0's setup checks have passed, including fresh setup in M5; its original Git
+checkpoint was not performed here, so that historical milestone remains unchecked.
 
 ## Milestone log — M1, 2026-10-04
 
@@ -305,3 +307,93 @@ but its full setup/checkpoint milestone was not performed in this M1-only sessio
   marginal sensitivity, then share divides component by total volatility.
 - Next action: M5 final correctness review, fresh setup, reproducible demo and
   walkthrough. No remaining M4 blocker; no new scope requested.
+
+## Milestone log — M5, 2026-10-05 (Asia/Kolkata)
+
+- Status: complete within the exact MVP. Reviewed PROJECT_SPEC.md and both
+  calculation/data contracts against data.py, metrics.py, attribution.py, app.py
+  and all existing tests. No incorrect financial formula found. Fixed one concrete
+  settings boundary: missing/non-string/blank title previously passed validation
+  and could crash/misrender the UI; load_settings now raises a visible DataError.
+  Four invalid-title cases plus one-asset and missing-price dashboard tests added.
+- Changed: data.py, tests/test_data.py, tests/test_dashboard.py, README.md,
+  START_HERE.md, tests/README.md and PLAN.md. README holds actual commands,
+  assumptions, measured finding, code-linked explanation, 90-second demo and
+  exactly two CV bullets. No report/export pipeline or other feature added.
+
+| MVP item | Implementation and verification evidence |
+|---|---|
+| 1 CSV portfolio | load_portfolio; decimal/schema/duplicate/weight tests; real example and SPY-only CSV bytes supplied at upload boundary |
+| 2 Historical download | download_prices shared by app/CLI; real dashboard refresh downloaded five assets and SPY alone; source-verified USD; validated save/load |
+| 3 Daily returns | daily_returns/prepare_returns; independent synthetic answers and two-adjacent-return missing-price exclusion |
+| 4 Annualized asset volatility | annualized_asset_volatility; 2% daily std gives 31.74901573% annualized; real table |
+| 5 Covariance/correlation | daily_covariance/correlation_matrix; ddof=1 known answers, label/shape/constant cases; real matrices |
+| 6 Portfolio volatility | portfolio_volatility/calculate_metrics; diagonal example and weighted-return-std reconciliation; real 8.8704% |
+| 7 Marginal risk | calculate_attribution; independent MRC answers, units, alignment; real table |
+| 8 Component risk | same; signed examples, zero-weight handling, Euler sum; real sum 0.08870411863114672 |
+| 9 Risk shares | same; shares reconcile to 1; single asset 100%; undefined zero-risk reasons |
+| 10 Diversification benefit | same; independent 0.2546440075 example, perfect-correlation/hedge/zero cases; real 34.3627%, single asset 0% |
+| 11 Four plots | build_figures; values/sign/units/NaN/connectgaps tests, real serialization and live-browser visual inspection of allocation, heatmap, component bars, rolling line |
+| 12 Streamlit dashboard | offline AppTest error/input/cache flows, separate real refresh/cache flows and fresh-environment local server/browser |
+
+- Offline commands: existing `.venv/Scripts/python.exe -m pytest -q` baseline
+  **141 passed in 9.97s**, expanded suite **147 passed in 7.32s**. The sandbox
+  could not launch base Python; approved execution used the same venv. All provider
+  calls in pytest are mocked; no live data needed. Missing-price UI test shows
+  one missing A price, two unavailable A returns, visible exclusion warning and
+  all four plots. Existing tests verify rolling gap windows/recovery, insufficient
+  history, constants, zero/negative risk, singular/invalid covariance, label
+  reordering, cache corruption/currency and failed refresh/write rollback.
+- Fresh environment: created ignored `data/raw/m5-venv` with Python 3.11.4;
+  `-m pip install -e ".[dev,data]"` exit 0 (build isolation enabled);
+  `-m pip check`: no broken requirements; `scripts/check_starter.py`: PASS,
+  explicitly scaffold/config/syntax only; `-m pytest -q`: **147 passed in 7.39s**.
+  Core installed versions: NumPy 2.4.6, pandas 3.0.6, Streamlit 1.65.0, Plotly
+  6.9.0, pytest 9.1.1, yfinance 1.7.0, pip 23.1.2, runtime setuptools 65.5.0.
+  pip's isolated build satisfied pyproject setuptools>=68; runtime setuptools
+  is separate. This is tested Windows setup, not a lockfile or Linux verification.
+- Launch: fresh Python ran `-m streamlit run app.py --server.headless true
+  --server.address 127.0.0.1 --server.port 8502 --browser.gatherUsageStats false`.
+  Server started; in-app browser showed the input page, example metrics/matrices
+  and all four rendered plots with correct labels. Browser initialization was slow
+  but recovered; one attempted scroll used an out-of-viewport coordinate and was
+  corrected. Browser screenshots inspected allocation/heatmap, component bars
+  and rolling line. Server stopped after verification.
+- Real flow: ignored `data/raw/verify_m5.py`, executed with fresh Python, exit 0.
+  Injected example CSV bytes at Streamlit file_uploader, clicked actual refresh
+  button through unmocked yfinance, validated two metrics/four charts, then reran
+  with download_prices forbidden. Repeated with `SPY,1` using an isolated ignored
+  single-asset cache so canonical example cache remains intact. No app error or
+  exception. All four figure objects serialized with data; component/share sums
+  reconciled. Initial manual-script attempts failed on its app import path and
+  cache-redirection lambda's missing staging arguments; both harness issues were
+  corrected before the successful final run, without changing production logic.
+- Real example retrieval UTC: 2026-10-04T19:37:23.842145+00:00 (2026-10-05 IST).
+  1,003 price dates, 2022-01-03 to 2025-12-31; all quotes source-verified USD;
+  1,002 common returns, zero missing/excluded dates; latest 756, 2022-12-27 to
+  2025-12-31. Annualized volatility 0.08870411863114673; benefit
+  0.3436269244566381; component sum 0.08870411863114672; share sum
+  0.9999999999999999; 697 available rolling windows, 59 initial unavailable.
+  SPY weight 0.35, annualized MRC 0.11015514543389708, CRC
+  0.03855430090186398, risk share 0.434639354934376. SPY-only retrieval
+  2026-10-04T19:37:24.929245+00:00: volatility 0.15357634044844243,
+  benefit 0, risk share approximately 1, same counts/dates, four plots.
+- Verification limits: native browser file-picker upload was not exercised;
+  AppTest has no upload action, so bytes were injected at its uploader boundary.
+  Browser separately verified the example rendering. Missing-data behavior is
+  verified with synthetic fixtures, not gaps in the real sample. No provider,
+  setup or implementation blocker remains. Package ranges allow later changes;
+  provider revisions can change measured findings. No claimed business impact.
+- Finance intuition/interview: SPY's covariance with the whole weighted portfolio
+  makes 35% capital contribute 43.46% volatility share. A component in volatility
+  pp differs from a share of total risk. Question: does MRC_SPY predict a funded
+  transfer from TLT? Answer: first-order change is delta*(MRC_SPY-MRC_TLT), because
+  both weights change. README contains the code trace and demonstration.
+- No subagents, worktrees, commit, push, publish or deployment. Private notes,
+  provider/cache and fresh environment remain ignored. `git diff --check` passed;
+  `git check-ignore` confirmed fresh venv, verification script, single-asset cache,
+  canonical cache/manifest and private role brief excluded. `git status --short`
+  showed only the seven intended tracked files modified. Git emitted LF/CRLF
+  notices and a denied global-ignore read; repository ignore checks still passed.
+  Next action: rehearse README demo and interview explanation;
+  no further feature implementation is pending.

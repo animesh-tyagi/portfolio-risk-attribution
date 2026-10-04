@@ -157,3 +157,31 @@ def test_default_requires_explicit_input(monkeypatch):
     at = AppTest.from_file(str(APP)).run()
     assert not at.exception and not at.metric and not at.button
     assert "explicitly select" in at.info[0].value
+
+
+def test_one_asset_dashboard(dashboard, monkeypatch):
+    payload, calls, _, run = dashboard
+    payload["csv"] = b"ticker,weight\nA,1\n"
+    single = prices_data()
+    single.prices = single.prices[["A"]]
+    single.provenance.update(requested_tickers=["A"],
+                             currency_verification={"A": single.provenance["currency_verification"]["A"]},
+                             **data._summary(single.prices))
+    monkeypatch.setattr(data, "download_prices", lambda *a, **k: single)
+    at = run()
+    at.button[0].click().run()
+    assert not at.exception and not at.error
+    assert len(at.get("plotly_chart")) == 4
+    assert at.table[3].value.loc["A"].iloc[4] == pytest.approx(100)
+    assert float(at.metric[1].value.rstrip("%")) == pytest.approx(0)
+    assert at.table[4].value.shape == at.table[5].value.shape == (1, 1)
+
+
+def test_missing_prices_are_visible_in_dashboard(dashboard):
+    _, calls, _, run = dashboard
+    data.save_cache(prices_data(gap=True))
+    at = run()
+    assert not at.exception and not at.error and not calls
+    assert at.table[2].value.loc["A"].tolist() == [1, 2]
+    assert any("Excluded 2" in w.value for w in at.warning)
+    assert len(at.get("plotly_chart")) == 4

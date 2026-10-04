@@ -42,3 +42,9 @@ CSV validation, changed tickers/weights, cache corruption, failed refresh,
 zero-risk/insufficient-history messages and chart signs, units and rolling gaps.
 The real-data manual verification is separate and recorded in PLAN.md; it is not
 part of pytest and provider network access is never needed by the test suite.
+
+M5 adds four missing/invalid-title settings cases, a complete single-asset
+dashboard check (four plots, 1x1 matrices, 100% share, zero benefit), and a
+missing-price dashboard check (one missing price, two excluded adjacent returns,
+visible warning, four plots). Final suite: 147 offline tests; fresh Windows
+installation and separate real-provider/browser checks are recorded in PLAN.md.

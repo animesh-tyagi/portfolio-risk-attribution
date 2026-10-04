@@ -1,112 +1,197 @@
 # Portfolio Risk Attribution Engine
 
-**Status: M1–M4 implemented. Financial engine and single-page dashboard verified;
-M5 fresh-environment setup and final review remain pending.**
+Completed 12-feature MVP: portfolio CSV → adjusted-price download/cache → daily
+returns and volatility attribution → four Streamlit plots. This demonstrates
+historical portfolio market volatility, not counterparty credit, PFE, margin or
+regulatory capital.
 
-A two-day Python project that loads a portfolio CSV, downloads historical prices,
-calculates volatility and holding-level risk contributions, and visualizes the
-results in Streamlit. Scope is the user's exact 12-feature MVP.
+## Install and run
 
-Start with [START_HERE.md](START_HERE.md). See [PROJECT_SPEC.md](PROJECT_SPEC.md)
-for scope, [PLAN.md](PLAN.md) for milestones and
-[docs/CODEX_PROMPTS.md](docs/CODEX_PROMPTS.md) for implementation prompts.
+From the repository root, Windows PowerShell (Python 3.11+):
 
-M1 uses the project venv. Run from the repository in PowerShell:
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,data]"
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Use an existing working venv rather than recreating it. No activation is needed.
+Linux/macOS equivalent (not executed in M5):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev,data]"
+python -m pip check
+python -m pytest -q
+python -m streamlit run app.py
+```
+
+Internet is required for installation and explicit downloads. Tests/calculations
+and matching-cache reruns are offline. Stop Streamlit with Ctrl+C.
+Upload a UTF-8 portfolio CSV or select **Use bundled example**, then click
+**Download prices / Refresh data** for an absent/mismatched cache or provider
+revisions. Ordinary reruns validate/reuse the cache without provider calls.
+
+```csv
+ticker,weight
+SPY,0.35
+TLT,0.25
+LQD,0.15
+GLD,0.15
+FXE,0.10
+```
+
+Only `ticker,weight` columns are accepted. Decimal weights must be finite,
+nonnegative and sum to one within 1e-8; never normalized. Labels are trimmed and
+uppercased; duplicates rejected. Any nonempty valid portfolio of supported USD
+instruments is accepted, including `SPY,1`. The five-asset example is a demo input.
+Changing allocation means uploading another CSV. Optional CLI commands:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/download_data.py --portfolio data/portfolio.csv
 .\.venv\Scripts\python.exe scripts/download_data.py --load-cache
-.\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe scripts/check_starter.py
 ```
 
-The first command explicitly downloads/refreshes data; the second only validates
-and reads the cache offline. The CLI resolves relative portfolio, settings and cache
-paths from the repository root, even when launched from another directory. Use
-`--settings` and `--cache-dir` to select other files/directories. Each portfolio CSV
-has exactly `ticker,weight` columns: decimal, finite, nonnegative weights totaling
-one within 1e-8. Tickers are trimmed and uppercased; duplicates are rejected.
-There is no fixed number of assets and weights are never silently normalized.
+CLI also accepts `--settings` and `--cache-dir`; relative paths resolve from the
+repository root. Its output verifies prices, not risk metrics. The starter checker
+checks scaffold/configuration/syntax only; pytest checks financial correctness.
 
-The CSV allocates capital (e.g. 0.35 means 35%); it supplies neither prices nor
-share quantities. `data/processed/prices.csv` instead contains historical adjusted
-closing prices by date and ticker. Prices need not sum to anything, and holdings
-are aligned by ticker rather than column position. The shared adapter uses
-`yfinance.download(interval="1d", auto_adjust=True)` and extracts `Close`, handling
-both single-ticker and MultiIndex responses. In installed yfinance 1.7.0,
-`auto_adjust` renames the provider's `Adj Close` to `Close`: the adjustment accounts
-for splits and distributions so these events do not create artificial raw-price
-changes. Future calculations use decimal simple returns on this adjusted series;
-it is not an executable historical quote or a realized trading record. The end
-date is exclusive. See the [yfinance download documentation](https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html).
+## Assumptions and contracts
 
-All quotes must be USD. Known non-USD instruments are rejected. Unknown currency
-metadata stops the download unless the user explicitly passes `--assume-usd`;
-that confirmation and its warning are saved in provenance. This flag never
-overrides a known non-USD quote. An instrument such as FXE can have euro economic
-exposure while its ETF shares are quoted in USD.
+- `data.py` isolates yfinance: explicit daily `auto_adjust=True` adjusted Close,
+  start 2022-01-01, exclusive end 2026-01-01. Adjustments account for splits and
+  distributions. Yahoo via yfinance is a third-party source, not an exchange feed.
+  Quotes must be USD. Known non-USD is rejected; unknown metadata requires the
+  explicit USD checkbox or CLI `--assume-usd`, with recorded basis/warning. No FX
+  conversion. A USD quote does not imply only USD economic exposure.
+- Ignored `data/processed/prices.csv` and `manifest.json` retain source, UTC
+  retrieval time, Python/provider versions, dates, currency, adjustment, missing
+  counts and SHA-256 integrity. Changed ticker sets/dates or corrupt metadata/data
+  require refresh; reordered tickers/changed weights reuse the cache. Failed
+  downloads preserve it. Staged writes roll back ordinary errors; hash validation
+  detects interruption between replacements, rather than an atomic two-file write.
+- Decimal simple returns are `P[t]/P[t-1]-1` on sorted union dates **before**
+  common-sample selection. No filling, interpolation or zero substitution. An
+  interior missing price invalidates two adjacent returns. Static metrics use
+  the latest 756 complete common returns, requiring at least 252 in the dashboard.
+  A zero-weight holding still participates in common-sample validation.
+- Sample std/covariance use ddof=1; daily covariance has decimal return squared
+  units, correlation is dimensionless. Volatility and marginal/component risk
+  annualize by sqrt(252). Align weights and both matrix axes by ticker. Portfolio
+  volatility reconciles with the std of the same weighted daily returns.
+- Fixed retrospective weights imply hypothetical daily rebalancing without costs
+  or taxes. Annualization is a convention, not a forecast. Days absent from every
+  series cannot be detected without an exchange calendar. ETFs are instrument
+  proxies, not isolated factors or a realized trading track record.
+- Daily `MRC = S @ w / sigma`, `CRC = w * MRC`, `share = CRC / sigma`.
+  Components sum to volatility, shares to 100% before rounding. Components use
+  volatility percentage points (pp); shares use percentages of total volatility.
+  Negative components remain signed; singular covariance is valid. Attribution
+  is unavailable with a reason when daily volatility <=1e-12. Tiny negative daily
+  variance of magnitude <=1e-14 may be clamped only with a diagnostic.
+- Diversification benefit is `1 - sigma / sum(w * asset_std)` at a common horizon;
+  unavailable when denominator <=1e-12. It measures volatility reduction, not
+  expected-return improvement or loss probability. Constant-asset correlations
+  are unavailable, including diagonals; zero-risk cases are explicit.
+- Exactly four plots: capital allocation, correlation heatmap, signed annualized
+  component risk and annualized 60-row rolling portfolio volatility. Rolling uses
+  consecutive union return rows, ddof=1; initial 59 rows and windows spanning gaps
+  are unavailable, with lines that do not connect gaps.
 
-The ignored local cache includes `prices.csv` and `manifest.json`: source, UTC
-retrieval time, Python/yfinance versions, requested/actual dates, adjustment,
-currency verification per ticker, row count, missing counts and SHA-256 hash.
-Missing values stay missing. Invalid observed prices, duplicate dates and symbols
-with no observed history are rejected. A changed ticker set, date request or
-inconsistent metadata/hash invalidates the cache and requires an explicit refresh.
-Weight changes and ticker reordering reuse it. A fixed completed historical sample
-has no automatic age expiry; retrieval time is retained, and provider revisions
-require an explicit refresh. Failed downloads leave the prior cache unchanged.
-File replacements are staged and rolled back on ordinary write errors; a process
-interruption between the two replacements is detected by the hash on the next load.
+The app displays provenance, actual dates/counts, missing-data diagnostics and
+units. See [METHODOLOGY.md](docs/METHODOLOGY.md),
+[DATA_CONTRACT.md](docs/DATA_CONTRACT.md) and [PROJECT_SPEC.md](PROJECT_SPEC.md).
+Market-data caches, environments and private role notes remain excluded from Git.
 
-Verified on 2026-10-04: the bundled example downloaded **1,003 price dates** from
-2022-01-03 through 2025-12-31, with zero missing prices and source-verified USD
-currency for every holding. The actual yfinance response used field/ticker
-MultiIndex columns. Prices are real Yahoo data via a third-party wrapper, not an
-official exchange feed; the cache remains excluded from Git.
+## Measured finding
 
-Launch the dashboard from the project environment:
+Verified on 2026-10-05 IST, manifest UTC 2026-10-04T19:37:23.842145+00:00:
+1,003 adjusted-price dates from 2022-01-03 through 2025-12-31, all five quotes
+source-verified USD and no missing prices. Latest 756 common returns span
+2022-12-27 through 2025-12-31.
 
-```powershell
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
+**SPY's 35% capital allocation contributed 43.4639% of portfolio volatility.**
+Annualized portfolio volatility was **8.8704%**, diversification benefit **34.3627%**.
+SPY annualized MRC was 0.1101551454; times 0.35 gives CRC 0.0385543009, displayed
+as **3.8554 volatility pp**. Dividing CRC by total volatility gives the share.
+Component sum was 0.08870411863114672 versus volatility 0.08870411863114673;
+share sum was 0.9999999999999999. Rolling had 697 available windows and 59 initial
+unavailable rows. Provider revisions may change these historical findings.
 
-Upload a portfolio CSV or explicitly select **Use bundled example**. The app shows
-validated weights and their sum. Click **Download prices / Refresh data** for a
-missing/mismatched cache or to obtain provider revisions. Ordinary reruns reuse a
-matching cache without network calls. Unknown quote currency needs the explicit
-USD confirmation checkbox; known non-USD quotes are rejected. Invalid CSVs and
-stale/corrupt caches show reasons and stop calculations. Failed refreshes can
-continue displaying a validated matching prior cache, with an error message.
+## Verification and working versions
 
-The dashboard calls the tested engine for returns, covariance, volatility and
-attribution. Static calculations use the latest 756 complete daily returns,
-requiring at least 252, sample ddof=1 and sqrt(252) annualization. Missing prices
-are never filled; returns require adjacent prices before common-sample selection.
-Fixed weights imply hypothetical daily rebalancing without costs or taxes.
-Annualization is a convention, not a future-risk guarantee. A day absent from
-every series cannot be detected without an exchange calendar.
+M5 reviewed all 12 features against both contracts. **147 offline tests passed**
+in the existing environment (7.32s) and fresh environment (7.39s). Tests cover
+independent known answers, label alignment, one asset, singular/zero risk, negative
+components, missing-price adjacency/rolling recovery, malformed inputs, cache
+integrity, failed refresh/write rollback and dashboard behavior. M5 fixed invalid
+or missing title validation and added six targeted cases.
 
-Exactly four plots show allocation, correlation, signed annualized component risk
-and annualized 60-day rolling portfolio volatility. Component risk uses volatility
-percentage points, while risk shares use percentages of total volatility. Negative
-components remain signed. Undefined values show unavailable with reasons; rolling
-windows require 60 consecutive union return rows and preserve gaps. No exports or
-reports are provided.
+Fresh Windows editable installation, `pip check`, scaffold check and local
+Streamlit launch passed. Separate real-provider AppTest flows supplied CSV bytes
+at the upload boundary, clicked the actual refresh button, verified two metrics
+and four serialized plots, and reran with downloads forbidden. Both example and
+SPY-only passed; one-asset volatility was 15.3576%, share 100%, benefit 0%.
+The live browser's example tables and all four plots were visually inspected.
+Native browser file-picker interaction was not exercised: AppTest substitutes
+upload bytes because it exposes no file-upload action. Missing-data tests use
+synthetic fixtures; real data had no gaps. No outstanding setup/provider/code
+blocker remains. [PLAN.md](PLAN.md) records the detailed evidence and boundaries.
 
-Verified real dashboard sample on 2026-10-04: **756 common returns from 2022-12-27
-through 2025-12-31**, annualized portfolio volatility **8.8704%**, diversification
-benefit **34.3627%**. For CSV row `SPY,0.35`, SPY identifies the adjusted-price
-column and 0.35 supplies the capital weight. The engine uses its covariance with
-the whole weighted portfolio to obtain annualized marginal risk 0.1101552151.
-Multiplying by 0.35 gives component 0.0385543253, displayed as **3.8554 volatility
-percentage points**. Dividing by portfolio volatility gives **43.4640% of total
-risk**, distinct from its 35% capital weight. Components reconcile to total
-volatility and shares to 100% before rounding. This measured finding may change
-with provider revisions; it demonstrates historical volatility attribution.
+| Dependency | Fresh Windows environment |
+|---|---|
+| Python | 3.11.4 |
+| NumPy | 2.4.6 |
+| pandas | 3.0.6 |
+| Streamlit | 1.65.0 |
+| Plotly | 6.9.0 |
+| pytest | 9.1.1 |
+| yfinance | 1.7.0 |
+| pip | 23.1.2 |
+| setuptools (runtime) | 65.5.0 |
 
-M4 verification used the real refresh button in Streamlit AppTest and subsequent
-cache reruns with provider calls forbidden, including a reordered CSV supplied at
-the upload boundary. Browser rendering was checked separately. **141 offline tests
-passed**, including numerical known answers and dashboard error/edge cases. The
-starter checker verifies scaffold/configuration only. See PLAN.md for the actual
-commands, verification boundaries and next milestone.
+Observed versions are not a lockfile. pip's isolated build dependencies satisfied
+setuptools>=68 separately from runtime setuptools. Other combinations are unverified.
+
+## 90-second demo
+
+1. Launch the app, choose the example or upload CSV, show weights total one,
+   then refresh. Point to source, quote verification, dates and the 756-return sample.
+2. Compare allocation and component bars. SPY has 35% capital, 3.8554 volatility
+   pp and 43.4639% risk share: covariance with the whole portfolio matters.
+3. Show correlation and rolling plots, 8.8704% total annualized volatility and
+   34.3627% diversification benefit relative to weighted standalone volatility.
+   Explain the 59 initial unavailable rolling observations.
+4. Rerun to demonstrate cache reuse. State fixed weights, historical ETF proxies,
+   missing-data exclusions and annualization limits.
+
+## Interview explanation tied to the code
+
+`load_portfolio` in `data.py` validates CSV weights; `download_prices` is the
+provider adapter and `load_cache` checks hash/request/provenance. `daily_returns`
+and `prepare_returns` in `metrics.py` preserve adjacency and select the common
+sample. `calculate_metrics` reconciles covariance volatility with std of weighted
+returns. `calculate_attribution` in `attribution.py` applies Euler contributions
+and checks sums. `app.py` converts decimals to display units and builds the plots.
+
+Question: **Why does SPY's 35% weight give 43.46% risk share, and does MRC predict
+a funded move from TLT to SPY?** Contribution depends on covariance with the
+weighted portfolio: weight times marginal sensitivity gives the component;
+dividing by total volatility gives share. MRC is unconstrained sensitivity per
+extra unit of weight. A fully invested transfer of delta has first-order change
+`delta * (MRC_SPY - MRC_TLT)` at the same horizon. A negative component can reduce
+volatility locally but does not guarantee a hedge.
+
+## CV bullets — completed work only
+
+- Built a CSV-driven Python portfolio volatility engine with adjusted-price
+  acquisition, validated caching, covariance/correlation, Euler risk attribution
+  and diversification analysis; verified numerical/input contracts with 147
+  offline pytest cases.
+- Developed a Streamlit dashboard with four Plotly visualizations and transparent
+  data provenance; demonstrated on 756 historical common returns that a 35% SPY
+  capital allocation contributed 43.46% of portfolio volatility.

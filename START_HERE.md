@@ -1,105 +1,70 @@
-# Start here — focused 12-feature MVP
+# Start here — completed 12-feature MVP
 
-This revised starter replaces the earlier broader plan. It covers portfolio CSV
-loading, historical prices, returns, volatility, risk attribution, diversification
-benefit and four Streamlit visualizations. See PROJECT_SPEC.md for the exact list.
-It is a starter scaffold, not an implemented financial engine.
+M1–M5 are complete: CSV loading, explicit price download/cache, financial engine
+and four-plot Streamlit dashboard. [README.md](README.md) has assumptions, working
+versions, measured findings, demo/interview explanation and CV bullets.
+[PLAN.md](PLAN.md) records verification evidence and its limits.
 
-## 1. What you need
-- Python 3.11 or 3.12, Git, an editor and Codex access.
-- Internet for package installation and initial historical-data acquisition.
-- Approximately 12 focused hours across two days, including verification and learning.
+## Setup and launch
 
-Use either your existing WSL setup or native Windows, keeping the project and its
-virtual environment in the same environment. Do not share a Windows venv with WSL.
-For Codex installation, follow the [official CLI setup](https://developers.openai.com/codex/cli).
-Start it in this project folder and use an available sign-in method. No OpenAI API
-key is needed by this application because it makes no LLM calls.
+Use Python 3.11+ and keep the checkout and venv on the same platform; do not share
+a Windows venv with WSL. From the repository root in PowerShell:
 
-## 2. Extract and set up
-Extract the revised ZIP into a fresh folder to avoid leaving old scenario/config
-files behind. Open the inner portfolio-risk-attribution folder containing AGENTS.md.
-If you already implemented any code, keep that existing repository and ask Codex
-to reconcile the new specification with it; do not overwrite completed work blindly.
-The following commands are for a fresh starter checkout.
-
-### WSL / Linux / macOS
-```bash
-python3 --version
-git init
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev,data]"
-python scripts/check_starter.py
-python -m streamlit run app.py
-```
-Use python3.11 or python3.12 to create the venv if python3 is older than 3.11.
-Install the matching venv support package if your WSL Python reports it missing.
-
-### Windows PowerShell
 ```powershell
-py -3.11 --version
-git init
 py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e ".[dev,data]"
+.\.venv\Scripts\python.exe -m pip check
 .\.venv\Scripts\python.exe scripts/check_starter.py
+.\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
-Use py -3.12 instead if that is your installed version. Use the same venv Python
-for later tests. These commands do not require PowerShell script activation.
-Stop Streamlit with Ctrl+C. The current page is explicitly a placeholder.
 
-Create an initial Git checkpoint after setup:
-```bash
-git add .
-git commit -m "Add focused portfolio risk attribution starter"
+Use an existing working venv rather than recreating it. Linux/macOS can create
+with `python3 -m venv .venv`, activate with `source .venv/bin/activate` and use
+the equivalent Python commands in README. Windows fresh setup was tested;
+Linux/macOS was not. Internet is needed for install and explicit downloads.
+Stop Streamlit with Ctrl+C. No backend, database, API key or deployment needed.
+
+Upload UTF-8 `ticker,weight` CSV with decimal nonnegative weights totaling one,
+or explicitly select the example. Click **Download prices / Refresh data** for
+missing/mismatched data; matching-cache reruns are offline. One asset is supported.
+Known non-USD is rejected; unknown metadata requires explicit USD confirmation.
+No filling of prices or normalization of weights.
+
+Optional CLI download and offline validation:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/download_data.py --portfolio data/portfolio.csv
+.\.venv\Scripts\python.exe scripts/download_data.py --load-cache
 ```
-Configure your own Git author name/email first if needed. Provider caches and the
-private role brief are excluded by .gitignore; the sample portfolio CSV is included.
 
-## 3. Start coding with Codex
-Launch `codex` in this folder, or open it in your Codex editor client. No special
-MCP server, custom skills or configuration files are necessary.
-Codex reads AGENTS.md; its instructions refer to the other project documents.
-No `/init` is needed because AGENTS.md already exists.
+## Verified state
 
-1. Read PROJECT_SPEC.md yourself and inspect data/portfolio.csv.
-2. Paste the M1 prompt from docs/CODEX_PROMPTS.md.
-3. Review the changes and verification result; ask for a small numerical explanation.
-4. Check the PLAN.md update and create a Git checkpoint.
-5. Continue with M2, M3, M4 and M5. Use the resume prompt if starting a new session.
+On 2026-10-05 IST: fresh installation, dependency/scaffold checks, 147 offline
+tests, local launch, real CSV-to-refresh-to-dashboard AppTest flows (five assets
+and one asset), offline reruns and live-browser inspection of all four plots
+passed. CSV bytes were supplied at AppTest's upload boundary; native browser
+file-picker interaction was not tested. Missing-data verification uses synthetic
+fixtures; the real sample has no gaps. No outstanding blocker.
 
-Milestones are portfolio/data, metrics, attribution, dashboard, and final validation.
-Do not request the entire application in one prompt. Keep the saved time for
-understanding the calculations and preparing an explanation of actual results.
+The starter checker is scaffold-only; pytest verifies financial/data/dashboard
+behavior. Recorded working versions are not a lockfile. Environments, market-data
+caches and private role notes stay ignored. No commit, push or publication in M5.
 
-## 4. Important files
-| File | Purpose |
+## Project map
+
+| Path | Responsibility |
 |---|---|
-| AGENTS.md | Persistent instructions and strict scope boundaries |
-| PROJECT_SPEC.md | Exact 12-feature list and completion criteria |
-| PLAN.md | Two-day schedule and resumable progress log |
-| docs/METHODOLOGY.md | Formula conventions and independent numerical examples |
-| docs/DATA_CONTRACT.md | Portfolio CSV, settings, download/cache and module contracts |
-| docs/CODEX_PROMPTS.md | Updated prompts M1–M5, resume and learning prompts |
-| data/portfolio.csv | Example ticker/weight portfolio |
-| config/settings.json | Dates, currency and estimation settings; no holdings |
-| docs/ROLE_ALIGNMENT_PRIVATE.md | Private JD mapping, excluded from Git |
-| pyproject.toml, src/, app.py | Installable scaffold and placeholder dashboard |
+| PROJECT_SPEC.md | Exact 12 features |
+| docs/METHODOLOGY.md, docs/DATA_CONTRACT.md | Calculation/data contracts |
+| data/portfolio.csv | Example capital allocation |
+| config/settings.json | Dates, USD and estimation defaults |
+| src/portfolio_risk/data.py | CSV/settings, provider and cache |
+| src/portfolio_risk/metrics.py | Returns, matrices, static/rolling volatility |
+| src/portfolio_risk/attribution.py | Marginal/component/share and benefit |
+| app.py | Single-page dashboard |
+| tests/ | Offline known-answer, validation and dashboard tests |
 
-## 5. Current state and verification
-The starter includes documents, CSV/configuration, a tiny synthetic price fixture
-and a standard-library configuration checker. Real market-data download, financial
-functions, their pytest tests and the four-plot dashboard are not yet implemented.
-The initial checker validates the scaffold only; it is not a financial test suite.
-
-Dependency ranges are initial constraints, not a tested lockfile. After M5 works
-in a clean virtual environment, record the tested Python and package versions.
-Keep calculated findings and demo instructions in README.md; no report engine is
-required. All 12 requested features remain in scope, including rolling volatility.
-
-Official setup references used in the original starter (checked 2026-10-03):
-- [Codex CLI](https://developers.openai.com/codex/cli)
-- [AGENTS.md](https://developers.openai.com/codex/guides/agents-md)
+Read AGENTS.md and contracts before maintenance. Preserve the 12-feature scope.
+Next action: rehearse the README demo and interview explanation; no further
+milestone implementation is pending.

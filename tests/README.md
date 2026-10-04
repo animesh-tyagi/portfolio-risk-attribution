@@ -22,5 +22,14 @@ windows with gaps and recovery. Tests construct only labeled synthetic histories
 the real cache is untouched. Correlations for constant assets and rolling windows
 with insufficient/gapped history must remain NaN, never fabricated zeros.
 
+M3's `test_attribution.py` verifies independent marginal/component/share and
+diversification answers, daily/annualized component reconciliation and share sums,
+negative components, zero weights, one asset, singular covariance, zero/negligible
+portfolio and standalone volatility, exact thresholds and diagnostic propagation.
+It also checks label alignment on both covariance axes and reordered price columns
+through M2, and rejects invalid inputs. Undefined attribution/benefit remains NaN
+with an explicit reason; exact hedges with positive standalone risk have 100%
+diversification benefit. All values in these tests are synthetic.
+
 The initial scripts/check_starter.py only validates the
 starter files, CSV, settings and Python syntax; it does not test a financial engine.

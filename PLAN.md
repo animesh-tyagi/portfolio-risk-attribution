@@ -18,7 +18,7 @@ with verified progress so a new Codex session can continue without the old chat.
 - [ ] M0 completed on the user's development machine.
 - [x] M1 completed with CSV portfolio and real market-data cache (2026-10-04).
 - [x] M2 completed with known-answer metric tests (2026-10-04).
-- [ ] M3 completed with attribution invariants.
+- [x] M3 completed with attribution invariants (2026-10-04).
 - [ ] M4 completed with all four required plots.
 - [ ] M5 completed with end-to-end verification and explanation.
 
@@ -47,9 +47,9 @@ real-data requirement; do not mark M1 or the whole project complete without it.
 Completed: M1 CSV/settings loading, observed-price validation, explicit shared
 yfinance adapter, CLI and validated local adjusted-price cache with provenance.
 The real bundled-example cache downloaded and subsequently loaded offline.
-M2 pure returns/volatility calculations now pass offline known-answer tests.
-Attribution and dashboard remain unimplemented; app.py is unchanged.
-Next: M3 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
+M2 pure returns/volatility calculations and M3 attribution now pass offline
+known-answer tests. Dashboard remains unimplemented; app.py is unchanged.
+Next: M4 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
 but its full setup/checkpoint milestone was not performed in this M1-only session.
 
 ## Milestone log — M1, 2026-10-04
@@ -173,3 +173,67 @@ but its full setup/checkpoint milestone was not performed in this M1-only sessio
   portfolio volatility for marginal/component/percentage risk and the specified
   diversification benefit; preserve negative contributions and explicit zero-risk
   handling. M4/M5 remain pending.
+
+## Milestone log — M3, 2026-10-04
+
+- Stage/status: M3 complete. Added src/portfolio_risk/attribution.py and
+  tests/test_attribution.py; updated tests/README.md and PLAN.md. Existing M1/M2
+  code, app.py, settings and market-data cache are preserved. No UI, factor/group
+  attribution or optimizer added. No commit, push or publication.
+- API: calculate_attribution(daily_covariance, weights, trading_days=252) returns
+  AttributionResult with a ticker-indexed table in portfolio row order, portfolio
+  volatility, weighted standalone daily volatility, fractional diversification
+  benefit, explicit unavailable reasons and diagnostics. Reuses M2 covariance,
+  weight and annualization validation. Both covariance axes and weights align by
+  ticker before arithmetic. M4 can pass MetricsResult.covariance and loaded weights
+  directly; pass the same configured trading_days to both milestones.
+- Units: table columns distinguish daily/annualized asset volatility, marginal
+  contribution and component contribution; risk_share is a fraction. Presentation
+  multiplies shares and diversification benefit by 100. A decimal annualized
+  component of 0.025 is 2.5 volatility percentage points, not a 2.5% risk share.
+  No rounded values or percentages are used in calculation.
+- Decisions: preserve negative marginal/components and shares; zero weights have
+  zero component/share when portfolio volatility is defined, but their marginal
+  sensitivity can be nonzero. No inverse is required for singular covariance.
+  All attribution columns remain NaN with a reason at daily volatility <=1e-12.
+  Benefit uses 1 - sigma_p / B with B=sum(w_i*sqrt(S_ii)), at the daily horizon;
+  unavailable when B<=1e-12. Exact hedge with positive B has benefit 1 even though
+  attribution is undefined. A positive negligible sigma_p is used as calculated
+  in the benefit if B exceeds its threshold, rather than rounded to zero.
+  M2's tiny-negative-variance clamp diagnostic is retained. If a rounding-scale
+  negative covariance diagonal passes M2 PSD tolerance, its standalone volatility
+  and benefit are unavailable with a reason; no diagonal is silently clipped.
+- Commands and actual results: `.venv/Scripts/python.exe -m pytest -q` could not
+  launch the base Python process inside the sandbox. Approved execution of that
+  same command passed: **131 passed in 4.78s** (99 existing, 32 new M3 cases).
+  Tests are offline; no market provider calls or real cache changes. New cases
+  cover independent known answers, daily/annualized component sums, share and
+  displayed-percentage sums, single assets, negative contributions, zero weights,
+  zero/negligible portfolio volatility, threshold equality, singular covariance,
+  independently reordered axes/weights and reordered price columns through M2,
+  invalid weights/covariance/labels, and annualization settings.
+- Financial verification: documented diagonal S=(0.0004,0.0001), w=(0.5,0.5)
+  gives daily volatility 0.0111803398875, MRC=(0.01788854382,0.004472135955),
+  CRC=(0.00894427191,0.0022360679775), shares=(0.8,0.2), B=0.015 and benefit
+  0.2546440075 (25.4644%). The signed example gives CRC approximately
+  (-0.00141421356237,0.00707106781187) and shares=(-0.25,1.25), preserving the
+  sum identities. These are verified synthetic examples, not measured market
+  findings or business impact. Scaffold checking was not rerun; this milestone
+  verifies the financial attribution engine, not the end-to-end dashboard.
+- Finance intuition: in the diagonal two-asset example, A's daily standalone
+  volatility is 2% versus B's 1%. Equal capital weights produce variance terms
+  0.5^2*0.02^2=0.0001 and 0.5^2*0.01^2=0.000025. With zero covariance, A supplies
+  four times B's variance term, so Euler volatility shares are 4/(4+1)=80% and
+  20%. Annualization scales both components equally and leaves these shares
+  unchanged. Capital allocation alone does not capture volatility or covariance.
+  A negative component means the holding reduces total volatility locally in
+  that allocation; it is not a negative capital weight or a guaranteed hedge.
+- Interview question: "Does MRC[A] predict the change when moving capital from
+  B to A?" Answer: MRC[A] is the unconstrained sensitivity. A fully invested move
+  changes both weights; the first-order daily volatility change for a small
+  decimal weight transfer delta is delta*(MRC[A]-MRC[B]). In this example the
+  difference is approximately 0.013416407865 per unit of transferred weight.
+- Next action: M4 dashboard only when requested, consuming M2/M3 structured
+  results and displaying units, unavailable reasons, diagnostics and provenance;
+  add the four specified plots with signed components and rolling gaps. M4/M5
+  remain pending. No remaining M3 blocker.

@@ -17,7 +17,7 @@ with verified progress so a new Codex session can continue without the old chat.
 - [x] Starter revised to the user's exact 12-feature MVP.
 - [ ] M0 completed on the user's development machine.
 - [x] M1 completed with CSV portfolio and real market-data cache (2026-10-04).
-- [ ] M2 completed with known-answer metric tests.
+- [x] M2 completed with known-answer metric tests (2026-10-04).
 - [ ] M3 completed with attribution invariants.
 - [ ] M4 completed with all four required plots.
 - [ ] M5 completed with end-to-end verification and explanation.
@@ -47,8 +47,9 @@ real-data requirement; do not mark M1 or the whole project complete without it.
 Completed: M1 CSV/settings loading, observed-price validation, explicit shared
 yfinance adapter, CLI and validated local adjusted-price cache with provenance.
 The real bundled-example cache downloaded and subsequently loaded offline.
-Financial functions and dashboard remain unimplemented; app.py is unchanged.
-Next: M2 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
+M2 pure returns/volatility calculations now pass offline known-answer tests.
+Attribution and dashboard remain unimplemented; app.py is unchanged.
+Next: M3 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
 but its full setup/checkpoint milestone was not performed in this M1-only session.
 
 ## Milestone log — M1, 2026-10-04
@@ -107,3 +108,68 @@ but its full setup/checkpoint milestone was not performed in this M1-only sessio
 - Next action: implement M2 daily returns on the sorted union date index without
   filling, then common-sample selection/diagnostics and the specified volatility,
   covariance/correlation and rolling-volatility functions with known-answer tests.
+
+## Milestone log — M2, 2026-10-04
+
+- Stage/status: M2 complete. Added src/portfolio_risk/metrics.py and
+  tests/test_metrics.py; updated tests/README.md and PLAN.md. M1 code, existing
+  cache, settings and app.py are preserved. No attribution or UI work added.
+- API: calculate_metrics(prices, weights, ...) returns a structured MetricsResult;
+  pass lookback_returns, min_observations, rolling_window and trading_days from
+  loaded settings. Defaults are 756, 252, 60 and 252. Standalone functions support
+  small offline examples; prepare_returns defaults to the mathematical minimum
+  of two complete observations, while calculate_metrics defaults to the dashboard
+  minimum of 252. No provider calls or cache writes in calculations.
+- Decisions: validate/sort prices using M1, calculate simple returns on adjacent
+  union price dates without filling, omit only the initial no-prior-price row,
+  preserve subsequent excluded dates in ReturnSample.daily_returns/excluded_dates,
+  and select the latest complete rows for every static metric. Extreme finite
+  price ratios that overflow are unavailable and counted in return diagnostics.
+  Diagnostics retain actual sample dates, row counts, missing prices and unavailable
+  returns by ticker. Days absent from every series remain undetectable without
+  an exchange calendar; the result includes this limitation.
+- Units/conventions: decimal daily returns; ddof=1 covariance in daily decimal
+  return squared; Pearson correlation dimensionless; asset/portfolio/rolling
+  volatility annualized by sqrt(252). Align weights and both covariance axes by
+  ticker, reject invalid weights without normalization, accept singular covariance,
+  reject materially indefinite/nonfinite/asymmetric inputs. Only negative daily
+  variance within 1e-14 is clamped, retaining a diagnostic. Constant-asset
+  correlation cells (including diagonals) are NaN with an explicit reason.
+- Rolling decision: output covers the selected estimation span through the last
+  available union return date, retaining internal/trailing gaps. It does not borrow
+  observations before the selected start. Use 60 consecutive union return rows;
+  first 59 and any window containing an excluded return date are NaN. A zero-weight
+  holding still participates in complete-sample selection. M4 must plot NaN gaps
+  without joining them and display the returned warnings/provenance.
+- Commands and actual results: `.venv/Scripts/python.exe -m pytest -q` initially
+  could not launch the base Python process in the sandbox; approved execution of
+  the same command succeeded: **99 passed in 3.80s** (57 M1, 42 new M2 cases).
+  `git diff --check` passed for tracked changes. No packages installed, market-data
+  download, commit, push or publication in this milestone.
+- Financial verification: independent diagonal example gives daily variance
+  0.000125 and volatility 0.0111803398875; one asset with daily std 0.02 gives
+  annualized volatility 0.3174901573. The existing four-price synthetic fixture
+  gives equal-weight portfolio returns (0.05, 0, 0), daily std 0.0288675134595 and
+  annualized std sqrt(0.21). Tests reconcile covariance-based volatility with
+  weighted-return sample std, check single-asset shapes, constants/zero risk,
+  singular matrices, label alignment, missing-price adjacency, lookback/minimum
+  counts, rolling known answers, gap invalidation and recovery. These are verified
+  synthetic calculation results, not measured market-data findings. The previous
+  scaffold checker is separate from this financial-engine verification; it was
+  not rerun in M2. No end-to-end dashboard claim or remaining M2 blocker.
+- Finance intuition: covariance combines how two returns move together with
+  their sizes; correlation divides covariance by both asset standard deviations
+  to give a dimensionless measure. For daily stds 0.02 and 0.01 and correlation
+  0.5, covariance is 0.5 * 0.02 * 0.01 = 0.0001. With equal weights, daily
+  portfolio variance is 0.00015, compared with the tested uncorrelated example's
+  0.000125. Correlation alone does not determine portfolio volatility: individual
+  asset volatility and capital weights also matter. Square-root annualization
+  is a convention, and fixed weights describe hypothetical daily rebalancing.
+- Interview question: "Why must sqrt(w.T @ S @ w) equal std(returns @ w, ddof=1)?"
+  Answer: sample covariance expands the variance of the same weighted daily
+  returns. Equality requires matching ticker labels, observations and ddof;
+  calculate_metrics checks this reconciliation before returning results.
+- Next action: M3 only, using this common daily covariance, aligned weights and
+  portfolio volatility for marginal/component/percentage risk and the specified
+  diversification benefit; preserve negative contributions and explicit zero-risk
+  handling. M4/M5 remain pending.

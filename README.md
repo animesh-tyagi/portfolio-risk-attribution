@@ -1,7 +1,7 @@
 # Portfolio Risk Attribution Engine
 
-**Status: M1 portfolio input and real adjusted-price cache implemented and verified;
-financial analytics and the dashboard remain unimplemented.**
+**Status: M1–M4 implemented. Financial engine and single-page dashboard verified;
+M5 fresh-environment setup and final review remain pending.**
 
 A two-day Python project that loads a portfolio CSV, downloads historical prices,
 calculates volatility and holding-level risk contributions, and visualizes the
@@ -64,8 +64,49 @@ currency for every holding. The actual yfinance response used field/ticker
 MultiIndex columns. Prices are real Yahoo data via a third-party wrapper, not an
 official exchange feed; the cache remains excluded from Git.
 
-M1 tests are offline input/adapter/cache checks using the labeled synthetic
-fixture and mocked provider responses. The scaffold checker is a separate setup
-check. Neither verifies returns, covariance, volatility attribution or the
-252-usable-return minimum; those belong to subsequent milestones. The app remains
-the original placeholder.
+Launch the dashboard from the project environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Upload a portfolio CSV or explicitly select **Use bundled example**. The app shows
+validated weights and their sum. Click **Download prices / Refresh data** for a
+missing/mismatched cache or to obtain provider revisions. Ordinary reruns reuse a
+matching cache without network calls. Unknown quote currency needs the explicit
+USD confirmation checkbox; known non-USD quotes are rejected. Invalid CSVs and
+stale/corrupt caches show reasons and stop calculations. Failed refreshes can
+continue displaying a validated matching prior cache, with an error message.
+
+The dashboard calls the tested engine for returns, covariance, volatility and
+attribution. Static calculations use the latest 756 complete daily returns,
+requiring at least 252, sample ddof=1 and sqrt(252) annualization. Missing prices
+are never filled; returns require adjacent prices before common-sample selection.
+Fixed weights imply hypothetical daily rebalancing without costs or taxes.
+Annualization is a convention, not a future-risk guarantee. A day absent from
+every series cannot be detected without an exchange calendar.
+
+Exactly four plots show allocation, correlation, signed annualized component risk
+and annualized 60-day rolling portfolio volatility. Component risk uses volatility
+percentage points, while risk shares use percentages of total volatility. Negative
+components remain signed. Undefined values show unavailable with reasons; rolling
+windows require 60 consecutive union return rows and preserve gaps. No exports or
+reports are provided.
+
+Verified real dashboard sample on 2026-10-04: **756 common returns from 2022-12-27
+through 2025-12-31**, annualized portfolio volatility **8.8704%**, diversification
+benefit **34.3627%**. For CSV row `SPY,0.35`, SPY identifies the adjusted-price
+column and 0.35 supplies the capital weight. The engine uses its covariance with
+the whole weighted portfolio to obtain annualized marginal risk 0.1101552151.
+Multiplying by 0.35 gives component 0.0385543253, displayed as **3.8554 volatility
+percentage points**. Dividing by portfolio volatility gives **43.4640% of total
+risk**, distinct from its 35% capital weight. Components reconcile to total
+volatility and shares to 100% before rounding. This measured finding may change
+with provider revisions; it demonstrates historical volatility attribution.
+
+M4 verification used the real refresh button in Streamlit AppTest and subsequent
+cache reruns with provider calls forbidden, including a reordered CSV supplied at
+the upload boundary. Browser rendering was checked separately. **141 offline tests
+passed**, including numerical known answers and dashboard error/edge cases. The
+starter checker verifies scaffold/configuration only. See PLAN.md for the actual
+commands, verification boundaries and next milestone.

@@ -33,3 +33,12 @@ diversification benefit. All values in these tests are synthetic.
 
 The initial scripts/check_starter.py only validates the
 starter files, CSV, settings and Python syntax; it does not test a financial engine.
+
+## M4 dashboard verification
+
+`test_dashboard.py` runs offline Streamlit AppTest flows with temporary synthetic
+price caches and a mocked provider. It checks explicit downloads, cache reuse,
+CSV validation, changed tickers/weights, cache corruption, failed refresh,
+zero-risk/insufficient-history messages and chart signs, units and rolling gaps.
+The real-data manual verification is separate and recorded in PLAN.md; it is not
+part of pytest and provider network access is never needed by the test suite.

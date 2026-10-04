@@ -19,7 +19,7 @@ with verified progress so a new Codex session can continue without the old chat.
 - [x] M1 completed with CSV portfolio and real market-data cache (2026-10-04).
 - [x] M2 completed with known-answer metric tests (2026-10-04).
 - [x] M3 completed with attribution invariants (2026-10-04).
-- [ ] M4 completed with all four required plots.
+- [x] M4 completed with all four required plots (2026-10-04).
 - [ ] M5 completed with end-to-end verification and explanation.
 
 ## Scope control
@@ -47,9 +47,11 @@ real-data requirement; do not mark M1 or the whole project complete without it.
 Completed: M1 CSV/settings loading, observed-price validation, explicit shared
 yfinance adapter, CLI and validated local adjusted-price cache with provenance.
 The real bundled-example cache downloaded and subsequently loaded offline.
-M2 pure returns/volatility calculations and M3 attribution now pass offline
-known-answer tests. Dashboard remains unimplemented; app.py is unchanged.
-Next: M4 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
+M2 pure returns/volatility calculations and M3 attribution pass offline
+known-answer tests. M4 single-page dashboard now consumes the engine, with CSV
+input, explicit refresh, validated cache reuse, metrics/matrices and four plots.
+Real-data refresh and offline reruns were verified in Streamlit AppTest.
+Next: M5 in docs/CODEX_PROMPTS.md. M0's environment/scaffold checks have passed,
 but its full setup/checkpoint milestone was not performed in this M1-only session.
 
 ## Milestone log — M1, 2026-10-04
@@ -237,3 +239,69 @@ but its full setup/checkpoint milestone was not performed in this M1-only sessio
   results and displaying units, unavailable reasons, diagnostics and provenance;
   add the four specified plots with signed components and rolling gaps. M4/M5
   remain pending. No remaining M3 blocker.
+
+## Milestone log — M4, 2026-10-04
+
+- Stage/status: M4 complete. Replaced app.py's placeholder with the single-page
+  Streamlit dashboard; added tests/test_dashboard.py, updated README.md,
+  tests/README.md and this plan. No engine formulas copied into the UI; M1–M3
+  financial modules unchanged. No exports, reports, additional metrics, commits,
+  pushes, publication, subagents or worktrees.
+- Input/data flow: upload is the default and requires a file; bundled example
+  requires explicit selection. Existing loader validates decimal weights and
+  ticker labels. Every ordinary rerun validates the on-disk cache; only the
+  Download prices / Refresh data button invokes the shared download adapter.
+  Explicit optional USD confirmation applies only to unavailable currency metadata.
+  Failed refreshes show errors and may display a validated matching prior cache.
+  Changed tickers/requests or damaged cache stop calculations with refresh guidance.
+- Presentation: two requested summary metrics, weight/asset-volatility/marginal/
+  component/share table, daily covariance and dimensionless correlation tables;
+  exactly allocation bars, correlation heatmap, signed annualized component bars,
+  annualized 60-day rolling volatility. Percentages and volatility pp are distinct.
+  Static tables have no export toolbar; Plotly image download control is removed.
+  NaN attribution/correlation is visibly unavailable with engine reasons; rolling
+  gaps remain gaps. Source, UTC retrieval, versions, adjustment, requested/actual
+  dates, currency basis, common observation counts and missing data are displayed.
+- Actual verification: `.venv/Scripts/python.exe -m pytest -q` passed **141 tests
+  in 7.75s**, including 10 dashboard tests and all 131 existing financial/data
+  tests. Dashboard tests cover explicit-action-only downloads, matching cache
+  reruns, reordered/changed weights, mismatched ticker sets, invalid CSVs, corrupted
+  cache, failed refresh retaining valid data, currency-confirmation forwarding,
+  insufficient history, zero risk, signed chart values/units and rolling gaps.
+  These tests are offline with provider mocks and temporary synthetic caches.
+  The sandbox could not launch base Python; approved venv execution was used.
+- Real-data verification: ignored local data/raw/verify_m4.py used Streamlit
+  AppTest to select the bundled example, click its actual refresh button through
+  the shared Yahoo/yfinance adapter, verify two metrics and four charts, then
+  rerun and supply a reordered CSV with provider calls forbidden. No app errors
+  or exceptions. Upload bytes were supplied at the file_uploader boundary because
+  AppTest lacks a native file-upload interaction; browser rendering was inspected
+  separately on a running local Streamlit server. A fresh-environment install and
+  full M5 correctness review remain pending; this is not scaffold-only validation.
+- Measured real sample: source Yahoo Finance via yfinance 1.7.0; retrieval
+  final refresh 2026-10-04T10:37:15.020092+00:00; 1,003 adjusted-price dates, 2022-01-03 through
+  2025-12-31, all five quotes source-verified USD. 1,002 complete returns, no missing
+  prices or excluded return dates; latest 756 selected, 2022-12-27 through
+  2025-12-31. Annualized portfolio volatility **8.870413%**, diversification benefit
+  **34.362675%**. Components sum to 0.08870413226775613 versus portfolio volatility
+  0.08870413226775611; shares sum to 1.0000000000000002. Rolling series has 756 rows,
+  697 available windows and 59 initial unavailable rows. Prices/cache and manual
+  verification script remain ignored. The final rerun after removing exports also
+  passed both real refresh and forbidden-provider cache/upload checks. The prior
+  refresh at 10:30:12 UTC gave 8.8704139718% volatility: small provider-data revisions
+  appeared on the later refresh. `git diff --check` passed; browser inspected final
+  static tables and plot labels on the running local app. No scaffold check rerun.
+- Finance intuition/CSV trace: row `SPY,0.35` gives ticker SPY and decimal capital
+  weight 0.35. The price column is selected by ticker, adjusted prices become
+  adjacent daily returns, and the common sample produces the covariance used by
+  calculate_attribution. The engine's annualized SPY marginal contribution is
+  0.1101552151; multiplying by its weight produces component 0.0385543253,
+  displayed as **3.8554 annualized volatility pp**. Dividing by portfolio volatility
+  gives **43.4640% of total risk**, despite only **35% of capital**. Its volatility
+  and covariance with every other holding explain that difference.
+- Interview question: "Why does SPY's 35% capital allocation produce a 43.46%
+  volatility share?" Answer: contribution depends on its covariance with the
+  whole weighted portfolio, not weight alone; component equals weight times
+  marginal sensitivity, then share divides component by total volatility.
+- Next action: M5 final correctness review, fresh setup, reproducible demo and
+  walkthrough. No remaining M4 blocker; no new scope requested.
